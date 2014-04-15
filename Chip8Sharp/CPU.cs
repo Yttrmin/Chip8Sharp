@@ -8,34 +8,39 @@ namespace Chip8Sharp
 {
     class CPU
     {
-        
-
-        private readonly bool[] GraphicsMemory;
-        private readonly byte[] Memory;
-        private readonly ushort[] Stack;
+        private readonly Memory Memory;
+        private readonly Stack<ushort> Stack;
         /// <summary>
         /// Registers, V0 through VF, each 8 bits in size.
         /// </summary>
-        private readonly byte[] V;
+        private readonly byte[] Registers;
         /// <summary>
         /// Index register, 16 bits in size.
         /// </summary>
-        private byte I;
-        private ushort PC;
-        private ushort SP;
-        private ushort IP;
+        private byte IndexRegister;
+        private ushort ProgramCounter;
+        // Can be byte?
+        private ushort StackPointer;
+        //private ushort InsturctionPointer;
+        private byte SoundTimer;
+        private byte DelayTimer;
+        private ulong Cycles;
 
         private const int RegisterCount = 16;
-        private const int MemorySize = 4096;
-        private const int GraphicsMemorySize = 64 * 32;
         private const int StackSize = 16;
+        private const int MemorySize = 4096;
 
         public CPU()
         {
-            this.V = new byte[RegisterCount];
-            this.Memory = new byte[MemorySize];
-            this.GraphicsMemory = new bool[GraphicsMemorySize];
-            
+            this.Registers = new byte[RegisterCount];
+            this.Stack = new Stack<ushort>(StackSize);
+            this.Memory = new Memory(MemorySize);
+        }
+
+        public CPU(byte[] Program, int StartAddress) : this()
+        {
+            this.LoadMemory(Program, StartAddress);
+            this.ProgramCounter = (ushort)StartAddress;
         }
 
         private void ConstructOpcodeMaps()
@@ -43,9 +48,25 @@ namespace Chip8Sharp
 
         }
 
+        public void Cycle()
+        {
+            var InstructionPointer = this.Fetch();
+            this.ProgramCounter += 2;
+
+            if(this.SoundTimer > 0)
+            {
+                this.SoundTimer--;
+            }
+            if(this.DelayTimer > 0)
+            {
+                this.DelayTimer--;
+            }
+            this.Cycles++;
+        }
+
         public void LoadMemory(byte[] Contents, int StartAddress)
         {
-            Array.Copy(Contents, 0, this.Memory, StartAddress, Contents.Length);
+            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -54,8 +75,7 @@ namespace Chip8Sharp
         /// <returns>Opcode.</returns>
         private ushort Fetch()
         {
-            var Result = BitConverter.ToUInt16(this.Memory, this.PC);
-            PC += 2;
+            var Result = this.Memory.ReadUInt16(this.ProgramCounter);
             return Result;
         }
 
