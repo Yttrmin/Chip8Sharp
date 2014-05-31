@@ -1,0 +1,9 @@
+syntax: glob
+
+*.csproj
+*.sln
+*.slo
+*.pdb
+*.suo
+*.exe
+*/obj/

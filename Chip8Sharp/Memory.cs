@@ -22,12 +22,32 @@ namespace Chip8Sharp
 
         public ushort ReadUInt16(int Address)
         {
-            return BitConverter.ToUInt16(this.MemoryArray, Address);
+            // Don't use BitConverter.ToUInt16 since this is (most likely) running on a little-endian
+            // system. CHIP8 is big-endian.
+            return (ushort)(this.MemoryArray[Address] << 8 | this.MemoryArray[Address + 1]);
         }
 
         public void WriteByte(int Address, byte Value)
         {
             this.MemoryArray[Address] = Value;
         }
+
+        public void Clear()
+        {
+            Array.Clear(this.MemoryArray, 0, this.MemoryArray.Length);
+        }
+
+        private void MemoryEvent(int StartAddress, int Size, MemoryAccess AccessType)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    enum MemoryAccess
+    {
+        None = 0,
+        Read = 1,
+        Write = 2,
+        Execute = 4
     }
 }
