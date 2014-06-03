@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Chip8Sharp
 {
-    internal class Input
+    public class Input
     {
         private readonly bool[] Keys;
         private const int KeyCount = 16;

@@ -1,18 +1,48 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Chip8Sharp
 {
-    internal class Memory
+    public sealed class Memory
     {
-        private readonly byte[] MemoryArray;
+        private readonly IList<byte> MemoryArray;
 
         public Memory(int SizeInBytes)
         {
             this.MemoryArray = new byte[SizeInBytes];
+        }
+
+        public Memory(Memory Other, int StartAddress, int EndAddress)
+        {
+            // Boxed, but ArraySegment is immutable so no harm done.
+            this.MemoryArray = new ArraySegment<byte>((byte[])Other.MemoryArray, StartAddress, EndAddress - StartAddress);
+        }
+
+        public byte this[int Address]
+        {
+            get {return this.ReadByte(Address);}
+            set { this.WriteByte(Address, value); }
+        }
+
+        public IEnumerable<bool> ReadBits(int StartAddress, int ByteAmount)
+        {
+            for(var i = StartAddress; i < StartAddress+ByteAmount; i++)
+            {
+                var Byte = this.ReadByte(i);
+                for(var u = 7; u >= 0; u--)
+                {
+                    yield return ((Byte >> u) & 1) == 1;
+                }
+            }
+        }
+
+        public bool ReadBit(int Address, int Bit)
+        {
+            return this.MemoryArray[Address] >> (7 - Bit) == 1;
         }
 
         public byte ReadByte(int Address)
@@ -32,9 +62,68 @@ namespace Chip8Sharp
             this.MemoryArray[Address] = Value;
         }
 
+        public void WriteBit(int Bit, bool Value)
+        {
+            var Address = Bit / 8;
+            var BitOffset = Bit % 8;
+
+            this.WriteBit(Address, (byte)BitOffset, Value);
+        }
+
+        public void WriteBit(int Address, byte Bit, bool Value)
+        {
+            if(Bit > 8)
+            {
+                throw new ArgumentException("Bit exceeds size of byte.");
+            }
+            var Byte = this.ReadByte(Address);
+            var OldByte = Byte;
+            if(Value)
+            {
+                Byte |= (byte)(0x80 >> Bit);
+                Debug.Assert(Byte >= OldByte);
+            }
+            else
+            {
+                unchecked
+                {
+                    Byte &= (byte)~(0x80 >> Bit);
+                    Debug.Assert(Byte <= OldByte);
+                }
+            }
+            this.WriteByte(Address, Byte);
+        }
+
         public void Clear()
         {
-            Array.Clear(this.MemoryArray, 0, this.MemoryArray.Length);
+            var ArrayMemory = this.MemoryArray as byte[] ?? ((ArraySegment<byte>)this.MemoryArray).Array;
+            Array.Clear(ArrayMemory, 0, this.MemoryArray.Count);
+        }
+
+        public void SetAll(byte Value)
+        {
+            for(var i = 0; i < this.MemoryArray.Count; i++)
+            {
+                this.MemoryArray[i] = Value;
+            }
+        }
+
+        public void SetAll(Func<byte,byte,bool> Evaluator)
+        {
+            for (byte x = 0; x < 64; x++)
+            {
+                for (byte y = 0; y < 32; y++)
+                {
+                    if(Evaluator(x, y))
+                    {
+                        this.WriteBit((y * 64 + x) / 8, (byte)(x % 8), true);
+                    }
+                    else
+                    {
+                        this.WriteBit((y * 64 + x) / 8, (byte)(x % 8), false);
+                    }
+                }
+            }
         }
 
         private void MemoryEvent(int StartAddress, int Size, MemoryAccess AccessType)

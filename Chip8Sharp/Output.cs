@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Chip8Sharp
 {
-    internal class Output
+    public class Output
     {
         private readonly Memory GraphicsMemory;
 

@@ -6,11 +6,12 @@ using System.Threading.Tasks;
 
 namespace Chip8Sharp
 {
-    class CPU
+    public class CPU
     {
         private readonly Input Input;
         private readonly Output Output;
-        private readonly Memory Memory;
+        public Memory Memory { get; private set; }
+        public Memory VideoMemory { get; private set; }
         private readonly Stack<ushort> Stack;
         private readonly Random Random;
         /// <summary>
@@ -23,7 +24,7 @@ namespace Chip8Sharp
         private ushort IndexRegister;
         private ushort ProgramCounter;
         // Can be byte?
-        private ushort StackPointer;
+        //private ushort StackPointer;
         private byte FlagRegister { get { return this.Registers[0xF]; } set { this.Registers[0xF] = value; } }
         //private ushort InsturctionPointer;
         private byte SoundTimer;
@@ -33,12 +34,16 @@ namespace Chip8Sharp
         private const int RegisterCount = 16;
         private const int StackSize = 16;
         private const int MemorySize = 4096;
-
+        private const int ScreenWidth = 64;
+        private const int ScreenHeight = 32;
+        public const int VideoMemoryStart = 0x0F00;
+        public const int VideoMemoryEnd = VideoMemoryStart + 256;
         private CPU()
         {
             this.Registers = new byte[RegisterCount];
             this.Stack = new Stack<ushort>(StackSize);
             this.Memory = new Memory(MemorySize);
+            this.VideoMemory = new Memory(this.Memory, VideoMemoryStart, VideoMemoryEnd);
             this.Random = new Random();
         }
 
@@ -79,6 +84,19 @@ namespace Chip8Sharp
             throw new NotImplementedException();
         }
 
+        public string DumpAdjacentMemory(byte Lines)
+        {
+            var Builder = new StringBuilder();
+            for(ushort Address = (ushort)(Math.Max(0, this.ProgramCounter - Lines/2)); 
+                Address < this.ProgramCounter + Lines/2; Address+=2)
+            {
+                Builder.AppendFormat("0x{0:X4}: {1:X4} {2}{3}", Address, this.Memory.ReadUInt16(Address),
+                    Address == this.ProgramCounter ? "<------------------- Program Counter" : string.Empty, 
+                    Environment.NewLine);
+            }
+            return Builder.ToString();
+        }
+
         public void LoadMemory(byte[] Contents, int StartAddress)
         {
             var Address = StartAddress;
@@ -97,6 +115,46 @@ namespace Chip8Sharp
         {
             var Result = this.Memory.ReadUInt16(this.ProgramCounter);
             return Result;
+        }
+
+        private struct SpritePixel
+        {
+            public readonly bool Value;
+            public readonly byte X, Y;
+
+            public SpritePixel(byte X, byte Y, bool Value)
+            {
+                this.Value = Value;
+                this.X = X;
+                this.Y = Y;
+            }
+        }
+
+        private IEnumerable<SpritePixel> GetSprite(int StartAddress, int StartX, int StartY, byte Height)
+        {
+            var X = (byte)StartX;
+            var Y = (byte)StartY;
+            for(var Address = StartAddress; Address < StartAddress+Height; Address++)
+            {
+                // Went off screen vertically, no hope of getting back.
+                if(Y >= ScreenHeight)
+                {
+                    yield break;
+                }
+                var Byte = this.Memory.ReadByte(Address);
+                for (var i = 0; i < 8; i++)
+                {
+                    yield return new SpritePixel(X, Y, (Byte >> (7-i)) % 2 != 0);
+                    X++;
+                    // Went off screen horizontally, break to try the next row.
+                    if(X >= ScreenWidth)
+                    {
+                        break;
+                    }
+                }
+                Y++;
+                X = (byte)StartX;
+            }
         }
 
         private void DecodeExecute(ushort Instruction)
@@ -121,7 +179,7 @@ namespace Chip8Sharp
                             this.ProgramCounter = this.Stack.Pop();
                             break;
                     }
-                    break;
+                    goto default;
                 case 0x1:
                     // JMP. Jump to address 0nnn. 1 argument 0x1nnn.
                     this.ProgramCounter = (ushort)(Instruction & 0x0FFF);
@@ -243,7 +301,7 @@ namespace Chip8Sharp
                             this.Registers[RegisterIndex] <<= 1;
                             break;
                     }
-                    break;
+                    goto default;
                 case 0xA:
                     // LD I. Set value of index register to the address nnn. 1 argument. 0xAnnn.
                     this.IndexRegister = (ushort)(Instruction & 0x0FFF);
@@ -261,7 +319,22 @@ namespace Chip8Sharp
                     break;
                 case 0xD:
                     // DRW Vx, Vy, nibble. 
-                    //throw new NotImplementedException();
+                    RegisterIndex = (byte)((Instruction & 0x0F00) >> 8);
+                    var ScreenX = this.Registers[RegisterIndex];
+                    RegisterIndex = (byte)((Instruction & 0x00F0) >> 4);
+                    var ScreenY = this.Registers[RegisterIndex];
+                    var Height = (byte)(Instruction & 0x000F);
+                    this.FlagRegister = 0;
+                    foreach(var BitData in this.GetSprite(this.IndexRegister, ScreenX, ScreenY, Height))
+                    {
+                        Address = (ushort)((BitData.Y * ScreenWidth + BitData.X)/8);
+                        var OldValue = this.VideoMemory.ReadByte(Address);
+                        this.VideoMemory.WriteBit(Address, (byte)(BitData.X % 8), BitData.Value);
+                        if(OldValue > this.VideoMemory.ReadByte(Address))
+                        {
+                            this.FlagRegister = 1;
+                        }
+                    }
                     break;
                 case 0xE:
                     switch((byte)(Instruction & 0x00FF))
@@ -283,7 +356,7 @@ namespace Chip8Sharp
                             }
                             break;
                     }
-                    break;
+                    goto default;
                 case 0xF:
                     switch ((byte)(Instruction & 0x00FF))
                     {
@@ -315,11 +388,9 @@ namespace Chip8Sharp
                         case 0x29:
                             // LD F, Vx. Set value of I to location for hex sprite cooresponding to Vx. 1 argument. 0xFx29.
                             throw new NotImplementedException();
-                            break;
                         case 0x33:
                             // LD B, Vx. Determine base-10 value of Vx. Hundreds digit goes to I, tens to I+1, and ones to I+2. 1 argument. 0xFx33.
                             throw new NotImplementedException();
-                            break;
                         case 0x55:
                             // LD [I], Vx. Store registers V0 through Vx in memory starting at address I. 1 argument. 0xFx55.
                             Value = (byte)(Instruction & 0x0F00);
@@ -343,10 +414,10 @@ namespace Chip8Sharp
                             }
                             break;
                     }
-                    break;
+                    goto default;
                 default:
                     //@TODO - More info.
-                    throw new ArgumentException(String.Format("Tried to execute invalid opcode {0:X}", Instruction));
+                    throw new ArgumentException(String.Format("Tried to execute invalid opcode {0:X4}", Instruction));
             }
         }
     }
