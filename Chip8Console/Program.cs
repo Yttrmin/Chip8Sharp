@@ -15,14 +15,14 @@ namespace Chip8Console
         static void Main(string[] args)
         {
             var Memory = new Memory(4096);
-            using (var Stream = new FileStream("Maze.c8", FileMode.Open, FileAccess.Read))
+            using (var Stream = new FileStream("Connect4.ch8", FileMode.Open, FileAccess.Read))
             {
                 Memory.Load(Stream, 0x0200);
             }
             
             var Output = new ConsoleOutput(Memory);
-            var Input = new Input();
-            var CPU = new CPU(Memory, Output);
+            var Input = new ConsoleInput();
+            var CPU = new CPU(Memory, Input, Output);
             while (true)
             {
                 if (Console.KeyAvailable)

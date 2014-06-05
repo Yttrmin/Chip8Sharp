@@ -6,12 +6,21 @@ using System.Threading.Tasks;
 
 namespace Chip8Sharp
 {
-    public class Input
+    public interface IInput : ITickable
+    {
+        void KeyDown(byte Key);
+        void KeyUp(byte Key);
+        bool IsKeyDown(byte Key);
+        bool IsKeyUp(byte Key);
+        byte WaitForNextKeyPress();
+    }
+
+    public abstract class BaseInput : IInput
     {
         private readonly bool[] Keys;
         private const int KeyCount = 16;
 
-        public Input()
+        public BaseInput()
         {
             this.Keys = new bool[KeyCount];
         }
@@ -40,9 +49,8 @@ namespace Chip8Sharp
             return !this.IsKeyDown(Key);
         }
 
-        public byte WaitForNextKeyPress()
-        {
-            throw new NotImplementedException();
-        }
+        public abstract byte WaitForNextKeyPress();
+
+        public abstract void Tick();
     }
 }

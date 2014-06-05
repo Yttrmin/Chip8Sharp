@@ -12,13 +12,13 @@ namespace Chip8Sharp
     {
         private readonly CPU CPU;
         private readonly Memory Memory;
-        private readonly Input Input;
+        private readonly IInput Input;
         private readonly IOutput Output;
 
         private const int MemorySizeInBytes = 4096;
         private const int ROMStartAddress = 0x0200;
 
-        public Emulator(Input Input, IOutput Output)
+        public Emulator(IInput Input, IOutput Output)
         {
             this.Memory = new Memory(MemorySizeInBytes);
             this.Input = Input;

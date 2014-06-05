@@ -8,7 +8,7 @@ namespace Chip8Sharp
 {
     public class CPU
     {
-        private readonly Input Input;
+        private readonly IInput Input;
         private readonly IOutput Output;
         public Memory Memory { get; private set; }
         public Memory VideoMemory { get; private set; }
@@ -48,10 +48,11 @@ namespace Chip8Sharp
             this.Random = new Random();
         }
 
-        public CPU(Memory SystemMemory, IOutput Output) : this()
+        public CPU(Memory SystemMemory, IInput Input, IOutput Output) : this()
         {
             this.Memory = SystemMemory;
             this.Output = Output;
+            this.Input = Input;
             this.VideoMemory = this.Output.VideoMemory;
             this.ProgramCounter = ProgramROMStart;
         }
@@ -197,8 +198,10 @@ namespace Chip8Sharp
                             // RET. Return from subroutine. No arguments.
                             this.ProgramCounter = this.Stack.Pop();
                             break;
+                        default:
+                            goto IllegalOpcode;
                     }
-                    goto default;
+                    break;
                 case 0x1:
                     // JMP. Jump to address 0nnn. 1 argument 0x1nnn.
                     this.ProgramCounter = (ushort)(Instruction & 0x0FFF);
@@ -253,7 +256,7 @@ namespace Chip8Sharp
                     break;
                 case 0x8:
                     RegisterIndex = (byte)((Instruction & 0x0F00) >> 8);
-                    RegisterIndexY = (byte)(Instruction & 0x00F0);
+                    RegisterIndexY = (byte)((Instruction & 0x00F0) >> 4);
                     switch((byte)(Instruction & 0x000F))
                     {
                         case 0x0:
@@ -319,8 +322,10 @@ namespace Chip8Sharp
                             this.FlagRegister = (byte)(this.Registers[RegisterIndex] & 0x80);
                             this.Registers[RegisterIndex] <<= 1;
                             break;
+                        default:
+                            goto IllegalOpcode;
                     }
-                    goto default;
+                    break;
                 case 0xA:
                     // LD I. Set value of index register to the address nnn. 1 argument. 0xAnnn.
                     this.IndexRegister = (ushort)(Instruction & 0x0FFF);
@@ -348,7 +353,10 @@ namespace Chip8Sharp
                     {
                         Address = (ushort)((BitData.Y * ScreenWidth + BitData.X)/8);
                         var OldValue = this.VideoMemory.ReadByte(Address);
-                        this.VideoMemory.WriteBit(Address, (byte)(BitData.X % 8), BitData.Value);
+                        var OldBit = this.VideoMemory.ReadBit(Address, (byte)(BitData.X % 8));
+
+                        this.VideoMemory.WriteBit(Address, (byte)(BitData.X % 8), BitData.Value ^ OldBit);
+                        
                         if(OldValue > this.VideoMemory.ReadByte(Address))
                         {
                             this.FlagRegister = 1;
@@ -374,8 +382,10 @@ namespace Chip8Sharp
                                 this.ProgramCounter += 2;
                             }
                             break;
+                        default:
+                            goto IllegalOpcode;
                     }
-                    goto default;
+                    break;
                 case 0xF:
                     switch ((byte)(Instruction & 0x00FF))
                     {
@@ -412,7 +422,7 @@ namespace Chip8Sharp
                             throw new NotImplementedException();
                         case 0x55:
                             // LD [I], Vx. Store registers V0 through Vx in memory starting at address I. 1 argument. 0xFx55.
-                            Value = (byte)(Instruction & 0x0F00);
+                            Value = (byte)((Instruction & 0x0F00) >> 8);
                             Address = this.IndexRegister;
                             //@BUG Is the end inclusive or exclusive?
                             for (var i = 0; i < Value; i++ )
@@ -423,7 +433,7 @@ namespace Chip8Sharp
                             break;
                         case 0x65:
                             // LD Vx, [I]. Set values of registers V0 through Vx from memory starting at address I. 1 argument. 0xFx65.
-                            Value = (byte)(Instruction & 0x0F00);
+                            Value = (byte)((Instruction & 0x0F00) >> 8);
                             Address = this.IndexRegister;
                             //@BUG Is the end inclusive or exclusive?
                             for (var i = 0; i < Value; i++ )
@@ -432,9 +442,12 @@ namespace Chip8Sharp
                                 Address++;
                             }
                             break;
+                        default:
+                            goto IllegalOpcode;
                     }
-                    goto default;
+                    break;
                 default:
+                IllegalOpcode:
                     //@TODO - More info.
                     throw new ArgumentException(String.Format("Tried to execute invalid opcode {0:X4}", Instruction));
             }
