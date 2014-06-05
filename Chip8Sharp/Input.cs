@@ -40,7 +40,7 @@ namespace Chip8Sharp
             return !this.IsKeyDown(Key);
         }
 
-        public byte NextKeyPress()
+        public byte WaitForNextKeyPress()
         {
             throw new NotImplementedException();
         }

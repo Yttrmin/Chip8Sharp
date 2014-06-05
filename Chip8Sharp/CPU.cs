@@ -9,7 +9,7 @@ namespace Chip8Sharp
     public class CPU
     {
         private readonly Input Input;
-        private readonly Output Output;
+        private readonly IOutput Output;
         public Memory Memory { get; private set; }
         public Memory VideoMemory { get; private set; }
         private readonly Stack<ushort> Stack;
@@ -38,22 +38,40 @@ namespace Chip8Sharp
         private const int ScreenHeight = 32;
         public const int VideoMemoryStart = 0x0F00;
         public const int VideoMemoryEnd = VideoMemoryStart + 256;
+        private const int ProgramROMStart = 0x0200;
         private CPU()
         {
             this.Registers = new byte[RegisterCount];
             this.Stack = new Stack<ushort>(StackSize);
-            this.Memory = new Memory(MemorySize);
-            this.VideoMemory = new Memory(this.Memory, VideoMemoryStart, VideoMemoryEnd);
+            //this.Memory = new Memory(MemorySize);
+            //this.VideoMemory = new Memory(this.Memory, VideoMemoryStart, VideoMemoryEnd);
             this.Random = new Random();
         }
 
-        public CPU(byte[] Program, int StartAddress, Output Output, Input Input)
-            : this()
+        public CPU(Memory SystemMemory, IOutput Output) : this()
         {
-            this.LoadMemory(Program, StartAddress);
-            this.ProgramCounter = (ushort)StartAddress;
+            this.Memory = SystemMemory;
             this.Output = Output;
-            this.Input = Input;
+            this.VideoMemory = this.Output.VideoMemory;
+            this.ProgramCounter = ProgramROMStart;
+        }
+
+        /// <summary>
+        /// Resets CPU state to default. Does not affect other components (Input, Memory, Output, etc).
+        /// </summary>
+        /// <param name="ProgramCounter">Address of next instruction to execute after reset.</param>
+        public void Reset(ushort ProgramCounter)
+        {
+            this.ProgramCounter = ProgramCounter;
+            this.SoundTimer = 0;
+            this.DelayTimer = 0;
+            this.IndexRegister = 0;
+            this.Stack.Clear();
+            for (var i = 0; i < this.Registers.Length; i++ )
+            {
+                this.Registers[i] = 0;
+            }
+            this.Cycles = 0;
         }
 
         private void ConstructOpcodeMaps()
@@ -97,6 +115,7 @@ namespace Chip8Sharp
             return Builder.ToString();
         }
 
+        [Obsolete("Use Memory")]
         public void LoadMemory(byte[] Contents, int StartAddress)
         {
             var Address = StartAddress;
@@ -172,7 +191,7 @@ namespace Chip8Sharp
                     {
                         case 0x00E0:
                             // CLS. Clear Screen. No arguments.
-                            this.Output.ClearMemory();
+                            this.Output.ClearScreen();
                             break;
                         case 0x00EE:
                             // RET. Return from subroutine. No arguments.
@@ -368,7 +387,7 @@ namespace Chip8Sharp
                         case 0x0A:
                             // LD Vx, K. Waits for a key press, stores value of key in Vx. 1 argument. 0xFx0A.
                             RegisterIndex = (byte)((Instruction & 0x0F00) >> 8);
-                            this.Registers[RegisterIndex] = this.Input.NextKeyPress();
+                            this.Registers[RegisterIndex] = this.Input.WaitForNextKeyPress();
                             break;
                         case 0x15:
                             // LD DT, Vx. Set value of delay timer to Vx. 1 argument. 0xFx15.

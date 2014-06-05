@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -26,6 +27,14 @@ namespace Chip8Sharp
         {
             get {return this.ReadByte(Address);}
             set { this.WriteByte(Address, value); }
+        }
+
+        public void Load(Stream Stream, int StartAddress)
+        {
+            for (var i = 0; i < Stream.Length; i++)
+            {
+                this.WriteByte(StartAddress+i, (byte)Stream.ReadByte());
+            }
         }
 
         public IEnumerable<bool> ReadBits(int StartAddress, int ByteAmount)
@@ -98,32 +107,6 @@ namespace Chip8Sharp
         {
             var ArrayMemory = this.MemoryArray as byte[] ?? ((ArraySegment<byte>)this.MemoryArray).Array;
             Array.Clear(ArrayMemory, 0, this.MemoryArray.Count);
-        }
-
-        public void SetAll(byte Value)
-        {
-            for(var i = 0; i < this.MemoryArray.Count; i++)
-            {
-                this.MemoryArray[i] = Value;
-            }
-        }
-
-        public void SetAll(Func<byte,byte,bool> Evaluator)
-        {
-            for (byte x = 0; x < 64; x++)
-            {
-                for (byte y = 0; y < 32; y++)
-                {
-                    if(Evaluator(x, y))
-                    {
-                        this.WriteBit((y * 64 + x) / 8, (byte)(x % 8), true);
-                    }
-                    else
-                    {
-                        this.WriteBit((y * 64 + x) / 8, (byte)(x % 8), false);
-                    }
-                }
-            }
         }
 
         private void MemoryEvent(int StartAddress, int Size, MemoryAccess AccessType)

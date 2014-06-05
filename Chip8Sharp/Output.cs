@@ -6,20 +6,32 @@ using System.Threading.Tasks;
 
 namespace Chip8Sharp
 {
-    public class Output
+    public interface IOutput : ITickable
     {
-        private readonly Memory GraphicsMemory;
+        Memory VideoMemory { get; }
+        void ClearScreen();
+    }
+
+    public abstract class BaseOutput : IOutput
+    {
+        protected const int NativeScreenWidth = 64;
+        protected const int NativeScreenHeight = 32;
+
+        private readonly Memory _VideoMemory;
+        public Memory VideoMemory { get { return this._VideoMemory; } }
 
         private const int GraphicsMemorySize = 64 * 32;
 
-        public Output()
+        public BaseOutput(Memory SystemMemory, int StartAddress, int EndAddress)
         {
-            this.GraphicsMemory = new Memory(GraphicsMemorySize);
+            this._VideoMemory = new Memory(SystemMemory, StartAddress, EndAddress);
         }
 
-        public void ClearMemory()
+        public void ClearScreen()
         {
-            this.GraphicsMemory.Clear();
+            this._VideoMemory.Clear();
         }
+
+        public abstract void Tick();
     }
 }
