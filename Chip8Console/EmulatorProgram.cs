@@ -1,6 +1,7 @@
 ﻿using Chip8Sharp;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -21,11 +22,20 @@ namespace Chip8Console
             Console.BufferWidth = ScreenWidth;
             Console.BufferHeight = ScreenHeight;
 
-            /*var Emulator = new Emulator();
+            var Memory = new Memory(4096);
+            var Output = new ConsoleOutput(Memory);
+            var Input = new ConsoleInput();
+
+            var Emulator = new Emulator(Memory, Input, Output);
+            using (var Stream = new FileStream("Maze.c8", FileMode.Open, FileAccess.Read))
+            {
+                Emulator.LoadROM(Stream);
+            }
+
             Emulator.Run(() =>
             {
 
-            });*/
+            });
         }
     }
 }

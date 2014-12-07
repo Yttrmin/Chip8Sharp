@@ -11,14 +11,18 @@ namespace Chip8Console
     class ConsoleOutput : BaseOutput
     {
         private readonly char[] Buffer;
+        private readonly char FilledPixel = '█'; // X ■ █
+        private readonly char EmptyPixel = ' ';
 
         public ConsoleOutput(Memory SystemMemory) : base(SystemMemory, 0x0F00, 0x0F00 + 256)
         {
             this.Buffer = new char[BaseOutput.NativeScreenWidth * BaseOutput.NativeScreenHeight];
             Console.CursorVisible = false;
-            Console.SetWindowSize(NativeScreenWidth, NativeScreenHeight);
+            // Extending the height and buffer of the console by 1 (note NOT changing this.Buffer size)
+            // fixes the flickering problem. Looks perfectly fine now.
+            Console.SetWindowSize(NativeScreenWidth, NativeScreenHeight+1);
             Console.BufferWidth = NativeScreenWidth;
-            Console.BufferHeight = NativeScreenHeight;
+            Console.BufferHeight = NativeScreenHeight+1;
         }
 
         void GarbageBuffer()
@@ -26,7 +30,7 @@ namespace Chip8Console
             var Random = new Random();
             for (var i = 0; i < Buffer.Length; i++)
             {
-                Buffer[i] = Random.Next(2) == 1 ? 'X' : ' ';
+                Buffer[i] = Random.Next(2) == 1 ? FilledPixel : EmptyPixel;
             }
         }
 
@@ -35,7 +39,7 @@ namespace Chip8Console
             var Index = 0;
             foreach (var Bit in this.VideoMemory.ReadBits(0, NativeScreenWidth * NativeScreenHeight / 8))
             {
-                Buffer[Index] = Bit ? 'X' : ' ';
+                Buffer[Index] = Bit ? FilledPixel : EmptyPixel;
                 Index++;
             }
         }
@@ -64,7 +68,6 @@ namespace Chip8Console
 
         void DrawBuffer()
         {
-            //Console.Clear();
             Console.SetCursorPosition(0, 0);
             Console.Write(Buffer);
         }

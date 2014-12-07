@@ -18,11 +18,12 @@ namespace Chip8Sharp
         private const int MemorySizeInBytes = 4096;
         private const int ROMStartAddress = 0x0200;
 
-        public Emulator(IInput Input, IOutput Output)
+        public Emulator(Memory Memory, IInput Input, IOutput Output)
         {
-            this.Memory = new Memory(MemorySizeInBytes);
+            this.Memory = Memory;
             this.Input = Input;
             this.Output = Output;
+            this.CPU = new CPU(this.Memory, this.Input, this.Output);
         }
 
         public void LoadROM(Stream ROMStream)
@@ -44,7 +45,8 @@ namespace Chip8Sharp
         {
             while(true)
             {
-
+                this.Step();
+                Tick();
             }
         }
 
@@ -55,7 +57,9 @@ namespace Chip8Sharp
 
         public void Step()
         {
-            throw new NotImplementedException();
+            CPU.Cycle();
+            Input.Tick();
+            Output.Tick();
         }
 
         public void Reset()

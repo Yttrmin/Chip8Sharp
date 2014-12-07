@@ -233,7 +233,7 @@ namespace Chip8Sharp
                     // SE. Skip next instruction if the value in register x 
                     // is equal to the value in register y. 2 arguments. 0x5xy0.
                     RegisterIndex = (byte)((Instruction & 0x0F00) >> 8);
-                    RegisterIndexY = (byte)(Instruction & 0x00F0);
+                    RegisterIndexY = (byte)((Instruction & 0x00F0) >> 4);
                     if(this.Registers[RegisterIndex] == this.Registers[RegisterIndexY])
                     {
                         this.ProgramCounter += 2;
@@ -368,7 +368,7 @@ namespace Chip8Sharp
                     {
                         case 0x9E:
                             // SKP Vx. Skip the next instruction if the x key is down. 1 argument. 0xEx9E.
-                            Value = (byte)(Instruction & 0x0F00);
+                            Value = (byte)((Instruction & 0x0F00) >> 8);
                             if(this.Input.IsKeyDown(Value))
                             {
                                 this.ProgramCounter += 2;
@@ -376,7 +376,7 @@ namespace Chip8Sharp
                             break;
                         case 0xA1:
                             // SKNP Vx. Skip the next instruction if the x key is up. 1 argument. 0xExA1.
-                            Value = (byte)(Instruction & 0x0F00);
+                            Value = (byte)((Instruction & 0x0F00) >> 8);
                             if(this.Input.IsKeyUp(Value))
                             {
                                 this.ProgramCounter += 2;
