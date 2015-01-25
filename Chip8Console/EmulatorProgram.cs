@@ -27,7 +27,8 @@ namespace Chip8Console
             var Input = new ConsoleInput();
 
             var Emulator = new Emulator(Memory, Input, Output);
-            using (var Stream = new FileStream("Maze.c8", FileMode.Open, FileAccess.Read))
+            var FilePath = args[0];
+            using (var Stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read))
             {
                 Emulator.LoadROM(Stream);
             }
